@@ -9,6 +9,8 @@ import logging
 import argparse
 import pygame
 import time
+import socket
+import select
 from random import randint
 from pprint import pformat,pprint
 from pygame.locals import *
@@ -168,12 +170,12 @@ class Marquee(object):
         #
         #self.display_options = self.display_options|pygame.DOUBLEBUF|pygame.OPENGL
 
-    def update_texts(self):
+    def update_texts(self, data=''):
         """
         - In LoremIpsum mode, generates new texts.
+        - In Server mode, add new texts received from TCP socket
 
         Other Ideas:
-        - Server mode, check for new texts from tcp socket
         - File Mode, monitor a directory for one or more files with lines of text
 
         """
@@ -186,6 +188,12 @@ class Marquee(object):
             for l in li.get_sentences_list(args.lorem):
                 lt = MarqueeText(l,textcolor=self.textcolor)
                 self.add_text(lt)
+            return True
+
+        if args.server:
+            self.texts=[]
+            st = MarqueeText(data,textcolor=self.textcolor)
+            self.add_text(st)
             return True
 
         # check if count or age is too high.
@@ -368,10 +376,26 @@ class Marquee(object):
         next_y = 0
         speed = self.speed
 
+        if args.server:
+            listen_address = args.address
+            port = args.port
+            server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            server_socket.bind((listen_address, port))
+            server_socket.listen(5) # become a server socket, maximum 5 connections
+            log.debug("Listening on port", port)
+
+            read_list = [server_socket]
+            readable, writable, errored = select.select(read_list, [], [])
+            for s in readable:
+                if s is server_socket:
+                    client_socket, address = server_socket.accept()
+                    read_list.append(client_socket)
+                    log.debug("Connection from", address)
+
         #enter the looooop
         going = True
         while going:
-
             # bail out on any key
             events = pygame.event.get()
             for e in events:
@@ -386,7 +410,19 @@ class Marquee(object):
             if not current_scroller:
                 # this is the first tick!
                 log.debug("new scroller!")
-                self.update_texts()
+                if args.server:
+                    readable, writable, errored = select.select(read_list, [], [], 0)
+                    for s in readable:
+                        if s is not server_socket:
+                            data=[]
+                            data = s.recv(64).decode("utf-8")
+                            if data:
+                               self.update_texts(data)
+                            else:
+                               s.close()
+                               read_list.remove(s)
+                else:
+                    self.update_texts()
                 current_scroller = self.generate_scroller()
                 if speed >= 0: # <-----
                     self.carrot = screen.get_width()
@@ -411,7 +447,19 @@ class Marquee(object):
             # generate the follow up scroller
             if not next_scroller and self.scroller_leaving(current_scroller):
                 log.debug("scroller leaving, adding next one")
-                self.update_texts()
+                if args.server:
+                    readable, writable, errored = select.select(read_list, [], [], 0)
+                    for s in readable:
+                        if s is not server_socket:
+                            data=[]
+                            data = s.recv(64).decode("utf-8")
+                            if data:
+                                self.update_texts(data)
+                            else:
+                                s.close()
+                                read_list.remove(s)
+                else:
+                    self.update_texts()
                 next_scroller = self.generate_scroller()
 
             # render some debugging stuff
@@ -486,6 +534,10 @@ def cmd_line():
     parser.add_argument('-v', action="store_true", help="Show verbose output")
     parser.add_argument('--lorem', type=int, help="(for debugging) generate lines of random text - overrides any other text input")
     parser.add_argument('text', default=['mawoh marquee'], nargs='*', help="Lines of text to display")
+    parser.add_argument('--server', action="store_true", help="Check for new texts from tcp socket")
+    parser.add_argument('--address', default='localhost', help="Server listen address")
+    parser.add_argument('--port', default=8089, type=int, help="Server listen port")
+
 
     args = parser.parse_args()
 
