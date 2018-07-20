@@ -152,10 +152,14 @@ class Marquee(object):
         os.environ['SDL_VIDEO_WINDOW_POS'] = "%d,%d" % (X,Y)
 
         # prepare font
+        fontdir = os.path.dirname(os.path.abspath (__file__))
         if fontfile:
-            self.font = freetype.Font(fontfile)
+            try:
+                self.font = freetype.Font(os.path.join (fontdir, "data", fontfile))
+            except OSError:
+                log.debug("Font file not found! Using default font.")
+                self.font = freetype.Font(os.path.join (fontdir, "data", "sans.ttf"))
         else:
-            fontdir = os.path.dirname(os.path.abspath (__file__))
             self.font = freetype.Font(os.path.join (fontdir, "data", "sans.ttf"))
 
         # the display decorations mode
@@ -516,7 +520,7 @@ def cmd_line():
     """
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--font', default=None, help="font file")
+    parser.add_argument('--font', default=None, help="Font file")
     parser.add_argument('--size', default=50, type=int, help="Font size")
     parser.add_argument('--width',default=800, type=int, help="Window width")
     parser.add_argument('--height',default=100, type=int, help="Window Height")
@@ -572,7 +576,7 @@ if __name__ == "__main__":
 
     # TODO#:
     # transfer command line
-    marquee = Marquee(fps=args.fps,width=args.width,height=args.height, autosize=args.autosize,X=args.X,Y=args.Y,fontsize=args.size, textcolor=COLORS[args.textcolor], bgcolor=COLORS[args.bgcolor], speed=args.speed,paddingtext=args.paddingtext, paddingcolor=COLORS[args.paddingcolor], maxcount=args.maxcount, maxage=args.maxage)
+    marquee = Marquee(fps=args.fps,width=args.width,height=args.height, autosize=args.autosize,X=args.X,Y=args.Y,fontfile=args.font, fontsize=args.size, textcolor=COLORS[args.textcolor], bgcolor=COLORS[args.bgcolor], speed=args.speed,paddingtext=args.paddingtext, paddingcolor=COLORS[args.paddingcolor], maxcount=args.maxcount, maxage=args.maxage)
     for t in  args.text:
         mtext = MarqueeText(t,textcolor=COLORS[args.textcolor])
         marquee.add_text(mtext)
