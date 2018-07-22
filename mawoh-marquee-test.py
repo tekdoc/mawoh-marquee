@@ -529,7 +529,7 @@ def cmd_line():
     parser.add_argument('--textcolor',default='green', choices=COLORS.keys(), help="Text Color")
     parser.add_argument('--bgcolor',default='black', choices=COLORS.keys(), help="Background Color")
     parser.add_argument('--paddingcolor',default='red', choices=COLORS.keys(), help="Padding text Color")
-    parser.add_argument('--paddingtext',default=' +++ ', choices=COLORS.keys(), help="Padding text")
+    parser.add_argument('--paddingtext',default='+++', help="Padding text")
     parser.add_argument('--X', default=0, type=int, help="Window X position")
     parser.add_argument('--Y', default=0, type=int, help="Window Y position")
     parser.add_argument('--maxage', default=0, type=int, help="Maximum age of a text (seconds, 0 means forever)")
